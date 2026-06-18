@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Report Danger — ShieldAI{% endblock %}
+{% block content %}
+<div class="home-container">
+  <div style="text-align:center; width:100%">
+    <i class="fas fa-eye" style="font-size:2.5rem; color:var(--red)"></i>
+    <h2 style="margin:12px 0 4px">I See Someone in Danger</h2>
+    <p style="color:var(--text2); font-size:0.9rem">Report what you're witnessing right now</p>
+  </div>
+
+  <div id="errorMsg" class="alert alert-error" style="display:none; width:100%"></div>
+  <div id="successMsg" class="alert alert-success" style="display:none; width:100%"></div>
+
+  <div style="width:100%; background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:24px;">
+    <div class="form-group">
+      <label>Describe what you see *</label>
+      <textarea id="description" placeholder="e.g. A woman is being followed by a man near the bus stop..."
+        class="form-input" rows="4" style="resize:none"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Your Location</label>
+      <div style="display:flex; gap:10px; align-items:center">
+        <input type="text" id="locationText" class="form-input" placeholder="Detecting location..." readonly/>
+        <button class="btn btn-secondary" onclick="detectLocation()" style="white-space:nowrap">
+          <i class="fas fa-location-dot"></i> Detect
+        </button>
+      </div>
+    </div>
+
+    <input type="hidden" id="lat"/>
+    <input type="hidden" id="lng"/>
+
+    <button class="btn btn-danger btn-full" onclick="submitWitnessReport()">
+      <i class="fas fa-satellite-dish"></i> Report Emergency Now
+    </button>
+  </div>
+
+  <a href="/user/home" style="color:var(--text2); font-size:0.85rem; text-decoration:none">
+    ← Back to Home
+  </a>
+</div>
+
+<script>
+const TOKEN = () => localStorage.getItem('shield_token');
+
+async function detectLocation() {
+  try {
+    const pos = await new Promise((res, rej) =>
+      navigator.geolocation.getCurrentPosition(res, rej));
+    document.getElementById('lat').value = pos.coords.latitude;
+    document.getElementById('lng').value = pos.coords.longitude;
+    document.getElementById('locationText').value =
+      `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+  } catch(e) {
+    document.getElementById('lat').value = 28.6139;
+    document.getElementById('lng').value = 77.2090;
+    document.getElementById('locationText').value = 'Using approximate location';
+  }
+}
+
+async function submitWitnessReport() {
+  const description = document.getElementById('description').value;
+  const lat = parseFloat(document.getElementById('lat').value);
+  const lng = parseFloat(document.getElementById('lng').value);
+
+  if (!description) {
+    document.getElementById('errorMsg').textContent = 'Please describe what you see';
+    document.getElementById('errorMsg').style.display = 'block';
+    return;
+  }
+
+  if (!lat) { await detectLocation(); }
+
+  try {
+    const res = await fetch('/api/witness/report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TOKEN()}`
+      },
+      body: JSON.stringify({ description, lat, lng })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('errorMsg').style.display = 'none';
+      document.getElementById('successMsg').textContent =
+        data.linked_case
+          ? `✅ Report linked to active case! Authorities notified.`
+          : `✅ New emergency case created! Authorities alerted.`;
+      document.getElementById('successMsg').style.display = 'block';
+      document.getElementById('description').value = '';
+      setTimeout(() => window.location.href = '/user/home', 3000);
+    } else {
+      throw new Error(data.error);
+    }
+  } catch(e) {
+    document.getElementById('errorMsg').textContent = e.message || 'Failed to submit report';
+    document.getElementById('errorMsg').style.display = 'block';
+  }
+}
+
+// Auto-detect location on load
+detectLocation();
+</script>
+{% endblock %}

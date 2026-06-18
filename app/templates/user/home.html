@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}Home — ShieldAI{% endblock %}
+{% block content %}
+<div class="home-container">
+
+  <!-- Status Bar -->
+  <div class="status-bar" id="statusBar">
+    <i class="fas fa-circle status-dot safe"></i>
+    <span id="statusText">You are safe</span>
+  </div>
+
+  <!-- Main Panic Button -->
+  <div class="panic-section">
+    <div class="panic-ring" id="panicRing">
+      <button class="panic-btn" id="panicBtn" onclick="triggerPanic()">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>SOS</span>
+        <small>Press & Hold</small>
+      </button>
+    </div>
+    <p class="panic-hint">Press 3 times or hold for 2 seconds to trigger alert</p>
+  </div>
+
+  <!-- Cancel Banner (hidden by default) -->
+  <div class="cancel-banner" id="cancelBanner" style="display:none">
+    <span>Alert triggered! Cancel within <b id="countdown">10</b>s</span>
+    <button class="btn btn-secondary" onclick="cancelAlert()">Cancel</button>
+  </div>
+
+  <!-- Recording Indicator -->
+  <div class="recording-indicator" id="recordingIndicator" style="display:none">
+    <div class="rec-dot"></div>
+    <span>Recording audio evidence...</span>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="quick-actions">
+    <a href="/user/witness" class="action-card">
+      <i class="fas fa-eye"></i>
+      <span>I See Danger</span>
+      <small>Report as witness</small>
+    </a>
+    <a href="/user/wearable" class="action-card">
+      <i class="fas fa-watch"></i>
+      <span>Wearable</span>
+      <small>Simulate device</small>
+    </a>
+    <div class="action-card" onclick="shareLocation()">
+      <i class="fas fa-map-marker-alt"></i>
+      <span>Share Location</span>
+      <small>Send to contacts</small>
+    </div>
+  </div>
+
+  <!-- User Info Card -->
+  <div class="user-card" id="userCard">
+    <div class="user-avatar"><i class="fas fa-user"></i></div>
+    <div class="user-info">
+      <h4 id="userName">Loading...</h4>
+      <p id="userPhone"></p>
+    </div>
+    <div class="user-blood" id="userBlood">O+</div>
+  </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/panic.js') }}"></script>
+<script>
+  // Load user info
+  const user = JSON.parse(localStorage.getItem('shield_user') || '{}');
+  if (user.name) {
+    document.getElementById('userName').textContent = user.name;
+    document.getElementById('userPhone').textContent = user.phone || '';
+  }
+
+  // Redirect if not logged in
+  if (!localStorage.getItem('shield_token')) {
+    window.location.href = '/auth/login';
+  }
+</script>
+{% endblock %}

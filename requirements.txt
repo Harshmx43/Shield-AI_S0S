@@ -1,0 +1,16 @@
+flask
+flask-socketio
+flask-jwt-extended
+flask-cors
+pymongo
+python-dotenv
+openai-whisper
+spacy
+nltk
+twilio
+cloudinary
+eventlet
+torch
+torchaudio
+numpy
+requests

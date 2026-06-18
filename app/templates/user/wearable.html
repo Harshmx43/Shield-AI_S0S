@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Wearable Simulation — ShieldAI{% endblock %}
+{% block content %}
+<div class="wearable-container">
+  <h2><i class="fas fa-watch"></i> Wearable Device Simulation</h2>
+  <p class="subtitle">Simulates data from a smart safety band</p>
+
+  <div class="wearable-card">
+
+    <!-- Heart Rate -->
+    <div class="sensor-block">
+      <div class="sensor-header">
+        <i class="fas fa-heartbeat sensor-icon heart"></i>
+        <span>Heart Rate</span>
+        <span class="sensor-value" id="hrValue">72 BPM</span>
+      </div>
+      <input type="range" id="heartRate" min="40" max="200" value="72"
+             oninput="updateHR(this.value)" class="slider"/>
+      <div class="hr-zones">
+        <span class="zone safe">Normal (60-100)</span>
+        <span class="zone warn">Elevated (100-140)</span>
+        <span class="zone danger">Danger (140+)</span>
+      </div>
+    </div>
+
+    <!-- Fall Detection -->
+    <div class="sensor-block">
+      <div class="sensor-header">
+        <i class="fas fa-person-falling sensor-icon warn"></i>
+        <span>Fall Detection</span>
+        <label class="toggle">
+          <input type="checkbox" id="fallDetect" onchange="checkBiometrics()"/>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <p class="sensor-desc">Detects sudden impact or falling motion</p>
+    </div>
+
+    <!-- Struggle Detection -->
+    <div class="sensor-block">
+      <div class="sensor-header">
+        <i class="fas fa-hand-fist sensor-icon danger"></i>
+        <span>Struggle Detection</span>
+        <label class="toggle">
+          <input type="checkbox" id="struggleDetect" onchange="checkBiometrics()"/>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <p class="sensor-desc">Detects rapid arm movement indicating resistance</p>
+    </div>
+
+    <!-- AI Status -->
+    <div class="ai-status" id="aiStatus">
+      <i class="fas fa-brain"></i>
+      <span id="aiStatusText">AI monitoring... all clear</span>
+    </div>
+
+    <!-- Manual Send -->
+    <button class="btn btn-danger btn-full" onclick="sendWearableAlert()">
+      <i class="fas fa-satellite-dish"></i> Send Emergency Signal Now
+    </button>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/wearable.js') }}"></script>
+{% endblock %}

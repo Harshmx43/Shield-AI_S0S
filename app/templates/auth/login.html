@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}Login — ShieldAI{% endblock %}
+{% block content %}
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <i class="fas fa-shield-alt"></i>
+      <h1>Shield<span class="accent">AI</span></h1>
+      <p>Intelligent Distress Detection System</p>
+    </div>
+
+    <div id="errorMsg" class="alert alert-error" style="display:none"></div>
+
+    <div class="form-group">
+      <label>Phone Number</label>
+      <input type="tel" id="phone" placeholder="+91 98765 43210" class="form-input"/>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Enter password" class="form-input"/>
+    </div>
+    <div class="form-group">
+      <label>Login As</label>
+      <select id="role" class="form-input">
+        <option value="user">👤 User (Victim / Witness)</option>
+        <option value="authority">🚔 Authority (Police / Security)</option>
+      </select>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="doLogin()">
+      <i class="fas fa-sign-in-alt"></i> Login
+    </button>
+    <p class="auth-link">Don't have an account? <a href="/auth/register">Register</a></p>
+  </div>
+</div>
+
+<script>
+async function doLogin() {
+  const phone = document.getElementById('phone').value;
+  const password = document.getElementById('password').value;
+
+  try {
+    const res = await fetch('/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({phone, password})
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      localStorage.setItem('shield_token', data.token);
+      localStorage.setItem('shield_user', JSON.stringify(data));
+      if (data.role === 'admin') {
+        window.location.href = '/admin/';
+      } else if (data.role === 'authority') {
+        window.location.href = '/dashboard/';
+      } else {
+        window.location.href = '/user/home';
+      }
+    } else {
+      showError(data.error);
+    }
+  } catch(e) {
+    showError('Connection failed. Please try again.');
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+document.addEventListener('keypress', e => { if(e.key === 'Enter') doLogin(); });
+</script>
+{% endblock %}

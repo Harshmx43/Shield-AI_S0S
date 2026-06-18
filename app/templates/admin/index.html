@@ -1,0 +1,497 @@
+{% extends 'base.html' %}
+{% block title %}Admin Panel — ShieldAI{% endblock %}
+{% block content %}
+<div class="admin-layout">
+
+  <!-- Sidebar -->
+  <aside class="admin-sidebar">
+    <div class="admin-brand">
+      <i class="fas fa-user-shield"></i>
+      <span>Admin Panel</span>
+    </div>
+    <nav class="admin-nav">
+      <a href="#" class="admin-nav-item active" onclick="showTab('overview')">
+        <i class="fas fa-chart-line"></i> Overview
+      </a>
+      <a href="#" class="admin-nav-item" onclick="showTab('users')">
+        <i class="fas fa-users"></i> Users
+      </a>
+      <a href="#" class="admin-nav-item" onclick="showTab('authorities')">
+        <i class="fas fa-shield-alt"></i> Authorities
+      </a>
+      <a href="#" class="admin-nav-item" onclick="showTab('cases')">
+        <i class="fas fa-folder-open"></i> All Cases
+      </a>
+      <a href="#" class="admin-nav-item" onclick="showTab('logs')">
+        <i class="fas fa-list-alt"></i> System Logs
+      </a>
+      <a href="/dashboard/" class="admin-nav-item">
+        <i class="fas fa-map"></i> Live Dashboard
+      </a>
+    </nav>
+    <div class="admin-user-info">
+      <i class="fas fa-user-circle"></i>
+      <div>
+        <p id="adminName">Admin</p>
+        <small>Super Administrator</small>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="admin-main">
+
+    <!-- ── Overview Tab ── -->
+    <div class="tab-content" id="tab-overview">
+      <div class="admin-header">
+        <h2>System Overview</h2>
+        <span id="lastUpdated" class="text-muted"></span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card critical">
+          <i class="fas fa-exclamation-triangle"></i>
+          <div>
+            <h3 id="s-critical">0</h3>
+            <p>Critical Active</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <i class="fas fa-folder-open"></i>
+          <div>
+            <h3 id="s-active">0</h3>
+            <p>Active Cases</p>
+          </div>
+        </div>
+        <div class="stat-card success">
+          <i class="fas fa-check-circle"></i>
+          <div>
+            <h3 id="s-resolved">0</h3>
+            <p>Resolved Today</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <i class="fas fa-users"></i>
+          <div>
+            <h3 id="s-users">0</h3>
+            <p>Total Users</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <i class="fas fa-shield-alt"></i>
+          <div>
+            <h3 id="s-authorities">0</h3>
+            <p>Authorities</p>
+          </div>
+        </div>
+        <div class="stat-card warn">
+          <i class="fas fa-ban"></i>
+          <div>
+            <h3 id="s-false">0</h3>
+            <p>False Alarms</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Role Distribution -->
+      <div class="admin-card">
+        <h3><i class="fas fa-pie-chart"></i> Role Distribution</h3>
+        <div class="role-bars" id="roleBars"></div>
+      </div>
+    </div>
+
+    <!-- ── Users Tab ── -->
+    <div class="tab-content" id="tab-users" style="display:none">
+      <div class="admin-header">
+        <h2>User Management</h2>
+        <div style="display:flex;gap:10px">
+          <input type="text" id="userSearch" placeholder="Search users..." class="form-input" style="width:220px" oninput="filterUsers()"/>
+          <select id="roleFilter" class="form-input" style="width:140px" onchange="loadUsers()">
+            <option value="">All Roles</option>
+            <option value="user">Users</option>
+            <option value="authority">Authorities</option>
+            <option value="admin">Admins</option>
+          </select>
+        </div>
+      </div>
+      <div class="admin-card">
+        <table class="admin-table" id="usersTable">
+          <thead>
+            <tr>
+              <th>Name</th><th>Phone</th><th>Role</th>
+              <th>Blood</th><th>Contacts</th><th>Joined</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody">
+            <tr><td colspan="7" class="loading-row">Loading users...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Authorities Tab ── -->
+    <div class="tab-content" id="tab-authorities" style="display:none">
+      <div class="admin-header">
+        <h2>Authority Management</h2>
+        <button class="btn btn-primary" onclick="showAddAuthority()">
+          <i class="fas fa-plus"></i> Add Authority
+        </button>
+      </div>
+
+      <!-- Add Authority Form -->
+      <div class="admin-card" id="addAuthorityForm" style="display:none">
+        <h3>Register New Authority</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" id="authName" class="form-input" placeholder="Officer name"/>
+          </div>
+          <div class="form-group">
+            <label>Phone *</label>
+            <input type="tel" id="authPhone" class="form-input" placeholder="+91 phone"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Password *</label>
+            <input type="password" id="authPassword" class="form-input" placeholder="Secure password"/>
+          </div>
+          <div class="form-group">
+            <label>Department</label>
+            <select id="authDept" class="form-input">
+              <option>Police</option>
+              <option>Security Guard</option>
+              <option>Emergency Services</option>
+              <option>NGO Responder</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="createAuthority()">
+            <i class="fas fa-user-plus"></i> Create Authority
+          </button>
+          <button class="btn btn-secondary" onclick="document.getElementById('addAuthorityForm').style.display='none'">
+            Cancel
+          </button>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <table class="admin-table">
+          <thead>
+            <tr><th>Name</th><th>Phone</th><th>Department</th><th>Cases Handled</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="authoritiesBody">
+            <tr><td colspan="6" class="loading-row">Loading authorities...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Cases Tab ── -->
+    <div class="tab-content" id="tab-cases" style="display:none">
+      <div class="admin-header">
+        <h2>All Cases</h2>
+        <select id="caseStatusFilter" class="form-input" style="width:160px" onchange="loadAllCases()">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="dispatched">Dispatched</option>
+          <option value="resolved">Resolved</option>
+          <option value="false_alarm">False Alarm</option>
+        </select>
+      </div>
+      <div class="admin-card">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Case ID</th><th>Victim</th><th>Danger</th>
+              <th>Trigger</th><th>Status</th><th>Time</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="casesBody">
+            <tr><td colspan="7" class="loading-row">Loading cases...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Logs Tab ── -->
+    <div class="tab-content" id="tab-logs" style="display:none">
+      <div class="admin-header">
+        <h2>System Logs</h2>
+        <button class="btn btn-secondary" onclick="loadLogs()">
+          <i class="fas fa-sync"></i> Refresh
+        </button>
+      </div>
+      <div class="admin-card">
+        <div id="logsContainer" class="logs-container">
+          <p class="text-muted">Loading logs...</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Role Change Modal -->
+<div class="modal" id="roleModal" style="display:none">
+  <div class="modal-content">
+    <h3>Change User Role</h3>
+    <input type="hidden" id="modalUserId"/>
+    <p id="modalUserName"></p>
+    <select id="modalRole" class="form-input">
+      <option value="user">👤 User</option>
+      <option value="authority">🚔 Authority</option>
+      <option value="admin">👑 Admin</option>
+    </select>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-primary" onclick="confirmRoleChange()">Save</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOKEN = () => localStorage.getItem('shield_token');
+let allUsers = [];
+
+// ── Tab Navigation ────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+  document.getElementById(`tab-${name}`).style.display = 'block';
+  document.querySelectorAll('.admin-nav-item').forEach(a => a.classList.remove('active'));
+  event.target.classList.add('active');
+
+  if (name === 'overview') loadStats();
+  if (name === 'users') loadUsers();
+  if (name === 'authorities') loadAuthorities();
+  if (name === 'cases') loadAllCases();
+  if (name === 'logs') loadLogs();
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const res = await fetch('/admin/api/stats', { headers: { Authorization: `Bearer ${TOKEN()}` } });
+  const d = await res.json();
+  document.getElementById('s-critical').textContent = d.critical_cases;
+  document.getElementById('s-active').textContent = d.active_cases;
+  document.getElementById('s-resolved').textContent = d.resolved_today;
+  document.getElementById('s-users').textContent = d.total_users;
+  document.getElementById('s-authorities').textContent = d.total_authorities;
+  document.getElementById('s-false').textContent = d.false_alarms;
+  document.getElementById('lastUpdated').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+
+  // Role distribution bars
+  const total = d.total_users || 1;
+  document.getElementById('roleBars').innerHTML = `
+    <div class="role-bar-row">
+      <span>👤 Users</span>
+      <div class="role-bar-track"><div class="role-bar-fill blue" style="width:${(d.total_users/total*100)}%"></div></div>
+      <span>${d.total_users - d.total_authorities - d.total_admins}</span>
+    </div>
+    <div class="role-bar-row">
+      <span>🚔 Authorities</span>
+      <div class="role-bar-track"><div class="role-bar-fill orange" style="width:${(d.total_authorities/total*100)}%"></div></div>
+      <span>${d.total_authorities}</span>
+    </div>
+    <div class="role-bar-row">
+      <span>👑 Admins</span>
+      <div class="role-bar-track"><div class="role-bar-fill red" style="width:${(d.total_admins/total*100)}%"></div></div>
+      <span>${d.total_admins}</span>
+    </div>
+  `;
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  const role = document.getElementById('roleFilter')?.value || '';
+  const url = `/admin/api/users${role ? '?role=' + role : ''}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN()}` } });
+  allUsers = await res.json();
+  renderUsers(allUsers);
+}
+
+function renderUsers(users) {
+  const body = document.getElementById('usersBody');
+  if (!users.length) { body.innerHTML = '<tr><td colspan="7" class="loading-row">No users found</td></tr>'; return; }
+  body.innerHTML = users.map(u => `
+    <tr>
+      <td><strong>${u.name}</strong></td>
+      <td>${u.phone}</td>
+      <td><span class="role-tag ${u.role}">${roleLabel(u.role)}</span></td>
+      <td>${u.blood_group || '—'}</td>
+      <td>${(u.trusted_contacts || []).length}</td>
+      <td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
+      <td>
+        <button class="btn btn-sm btn-secondary" onclick="openRoleModal('${u._id}', '${u.name}', '${u.role}')">
+          <i class="fas fa-user-edit"></i>
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="deleteUser('${u._id}', '${u.name}')">
+          <i class="fas fa-trash"></i>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterUsers() {
+  const q = document.getElementById('userSearch').value.toLowerCase();
+  renderUsers(allUsers.filter(u =>
+    u.name.toLowerCase().includes(q) || u.phone.includes(q)
+  ));
+}
+
+// ── Authorities ───────────────────────────────────────────────────────────────
+async function loadAuthorities() {
+  const res = await fetch('/admin/api/users?role=authority', { headers: { Authorization: `Bearer ${TOKEN()}` } });
+  const auths = await res.json();
+  const body = document.getElementById('authoritiesBody');
+  if (!auths.length) { body.innerHTML = '<tr><td colspan="6" class="loading-row">No authorities registered</td></tr>'; return; }
+  body.innerHTML = auths.map(a => `
+    <tr>
+      <td><strong>${a.name}</strong></td>
+      <td>${a.phone}</td>
+      <td>${a.department || 'Police'}</td>
+      <td>${a.cases_handled || 0}</td>
+      <td><span class="status-dot ${a.suspended ? 'suspended' : 'active'}">${a.suspended ? 'Suspended' : 'Active'}</span></td>
+      <td>
+        <button class="btn btn-sm btn-danger" onclick="suspendUser('${a._id}')">
+          <i class="fas fa-ban"></i> Suspend
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function showAddAuthority() {
+  document.getElementById('addAuthorityForm').style.display = 'block';
+}
+
+async function createAuthority() {
+  const payload = {
+    name: document.getElementById('authName').value,
+    phone: document.getElementById('authPhone').value,
+    password: document.getElementById('authPassword').value,
+    role: 'authority',
+    department: document.getElementById('authDept').value,
+    mic_consent: true,
+    trusted_contacts: [{ name: 'HQ', phone: '100' }]
+  };
+  const res = await fetch('/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
+    body: JSON.stringify(payload)
+  });
+  if (res.ok) {
+    alert('✅ Authority registered!');
+    document.getElementById('addAuthorityForm').style.display = 'none';
+    loadAuthorities();
+  } else {
+    const d = await res.json();
+    alert('Error: ' + d.error);
+  }
+}
+
+// ── Cases ─────────────────────────────────────────────────────────────────────
+async function loadAllCases() {
+  const status = document.getElementById('caseStatusFilter')?.value || '';
+  const url = `/admin/api/cases${status ? '?status=' + status : ''}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN()}` } });
+  const cases = await res.json();
+  const body = document.getElementById('casesBody');
+  if (!cases.length) { body.innerHTML = '<tr><td colspan="7" class="loading-row">No cases found</td></tr>'; return; }
+  body.innerHTML = cases.map(c => `
+    <tr>
+      <td><code>${c._id.slice(-6)}</code></td>
+      <td>${c.victim_name}</td>
+      <td><span class="danger-badge ${(c.danger_level||'').toLowerCase()}">${c.danger_level}</span></td>
+      <td>${c.trigger_type}</td>
+      <td><span class="status-tag ${c.status}">${c.status}</span></td>
+      <td>${c.created_at ? new Date(c.created_at).toLocaleString() : '—'}</td>
+      <td>
+        <button class="btn btn-sm btn-secondary" onclick="flagFalseAlarm('${c._id}')">
+          <i class="fas fa-flag"></i> Flag
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function flagFalseAlarm(caseId) {
+  if (!confirm('Flag this as a false alarm?')) return;
+  await fetch(`/admin/api/cases/${caseId}/flag`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${TOKEN()}` }
+  });
+  loadAllCases();
+}
+
+// ── Logs ──────────────────────────────────────────────────────────────────────
+async function loadLogs() {
+  const res = await fetch('/admin/api/logs', { headers: { Authorization: `Bearer ${TOKEN()}` } });
+  const logs = await res.json();
+  const container = document.getElementById('logsContainer');
+  if (!logs.length) { container.innerHTML = '<p class="text-muted">No logs available</p>'; return; }
+  container.innerHTML = logs.map(l => `
+    <div class="log-entry ${l.level || 'info'}">
+      <span class="log-time">${l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : ''}</span>
+      <span class="log-level">${l.level || 'INFO'}</span>
+      <span>${l.message}</span>
+    </div>
+  `).join('');
+}
+
+// ── Modals & Actions ──────────────────────────────────────────────────────────
+function openRoleModal(id, name, role) {
+  document.getElementById('modalUserId').value = id;
+  document.getElementById('modalUserName').textContent = `Changing role for: ${name}`;
+  document.getElementById('modalRole').value = role;
+  document.getElementById('roleModal').style.display = 'flex';
+}
+
+async function confirmRoleChange() {
+  const id = document.getElementById('modalUserId').value;
+  const role = document.getElementById('modalRole').value;
+  await fetch(`/admin/api/users/${id}/role`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
+    body: JSON.stringify({ role })
+  });
+  closeModal();
+  loadUsers();
+}
+
+function closeModal() { document.getElementById('roleModal').style.display = 'none'; }
+
+async function deleteUser(id, name) {
+  if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+  await fetch(`/admin/api/users/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${TOKEN()}` }
+  });
+  loadUsers();
+}
+
+async function suspendUser(id) {
+  if (!confirm('Suspend this authority account?')) return;
+  await fetch(`/admin/api/users/${id}/suspend`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${TOKEN()}` }
+  });
+  loadAuthorities();
+}
+
+function roleLabel(role) {
+  return { admin: '👑 Admin', authority: '🚔 Authority', user: '👤 User' }[role] || role;
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  if (!localStorage.getItem('shield_token')) { window.location.href = '/auth/login'; return; }
+  const user = JSON.parse(localStorage.getItem('shield_user') || '{}');
+  if (user.role !== 'admin') { window.location.href = '/user/home'; return; }
+  document.getElementById('adminName').textContent = user.name || 'Admin';
+  loadStats();
+});
+</script>
+{% endblock %}

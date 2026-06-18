@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block title %}Register — ShieldAI{% endblock %}
+{% block content %}
+<div class="auth-container">
+  <div class="auth-card wide">
+    <div class="auth-logo">
+      <i class="fas fa-shield-alt"></i>
+      <h1>Create Account</h1>
+      <p>Join ShieldAI Safety Network</p>
+    </div>
+
+    <div id="errorMsg" class="alert alert-error" style="display:none"></div>
+    <div id="successMsg" class="alert alert-success" style="display:none"></div>
+
+    <!-- Step 1: Personal Info -->
+    <div class="step" id="step1">
+      <h3 class="step-title"><span class="step-num">1</span> Personal Information</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input type="text" id="name" placeholder="Your full name" class="form-input"/>
+        </div>
+        <div class="form-group">
+          <label>Phone Number *</label>
+          <input type="tel" id="phone" placeholder="+91 98765 43210" class="form-input"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Age</label>
+          <input type="number" id="age" placeholder="25" class="form-input"/>
+        </div>
+        <div class="form-group">
+          <label>Blood Group</label>
+          <select id="blood_group" class="form-input">
+            <option>A+</option><option>A-</option><option>B+</option>
+            <option>B-</option><option>O+</option><option>O-</option>
+            <option>AB+</option><option>AB-</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Password *</label>
+        <input type="password" id="password" placeholder="Create strong password" class="form-input"/>
+      </div>
+      <div class="form-group">
+        <label>Register As</label>
+        <select id="role" class="form-input">
+          <option value="user">👤 User (General Public)</option>
+          <option value="authority">🚔 Authority (Police / Security)</option>
+          <option value="admin">👑 Admin (System Administrator)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Step 2: Trusted Contacts -->
+    <div class="step" id="step2">
+      <h3 class="step-title"><span class="step-num">2</span> Trusted Contacts (min 1)</h3>
+      <div id="contacts">
+        <div class="contact-row">
+          <input type="text" placeholder="Contact name" class="form-input contact-name"/>
+          <input type="tel" placeholder="+91 phone" class="form-input contact-phone"/>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="addContact()">
+        <i class="fas fa-plus"></i> Add Contact
+      </button>
+    </div>
+
+    <!-- Step 3: Consent -->
+    <div class="step" id="step3">
+      <h3 class="step-title"><span class="step-num">3</span> Safety Consent</h3>
+      <div class="consent-box">
+        <i class="fas fa-microphone consent-icon"></i>
+        <h4>Microphone Access Consent</h4>
+        <p>ShieldAI needs microphone access to detect distress in emergencies. Audio is only recorded when YOU trigger the panic button and is deleted after 24 hours.</p>
+        <label class="checkbox-label">
+          <input type="checkbox" id="mic_consent"/>
+          <span>I consent to microphone access during active emergencies</span>
+        </label>
+      </div>
+      <div class="consent-box">
+        <i class="fas fa-map-marker-alt consent-icon"></i>
+        <h4>Location Access Consent</h4>
+        <p>Your live location is shared with authorities and trusted contacts ONLY during an active emergency alert.</p>
+        <label class="checkbox-label">
+          <input type="checkbox" id="loc_consent" checked/>
+          <span>I consent to location sharing during emergencies</span>
+        </label>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="doRegister()">
+      <i class="fas fa-user-plus"></i> Create Account
+    </button>
+    <p class="auth-link">Already have an account? <a href="/auth/login">Login</a></p>
+  </div>
+</div>
+
+<script>
+function addContact() {
+  const div = document.createElement('div');
+  div.className = 'contact-row';
+  div.innerHTML = `
+    <input type="text" placeholder="Contact name" class="form-input contact-name"/>
+    <input type="tel" placeholder="+91 phone" class="form-input contact-phone"/>
+    <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">
+      <i class="fas fa-trash"></i>
+    </button>
+  `;
+  document.getElementById('contacts').appendChild(div);
+}
+
+async function doRegister() {
+  const names = document.querySelectorAll('.contact-name');
+  const phones = document.querySelectorAll('.contact-phone');
+  const trusted_contacts = [];
+
+  names.forEach((n, i) => {
+    if (n.value && phones[i].value) {
+      trusted_contacts.push({name: n.value, phone: phones[i].value});
+    }
+  });
+
+  if (!document.getElementById('mic_consent').checked) {
+    showError('Microphone consent is required for safety features');
+    return;
+  }
+
+  const payload = {
+    name: document.getElementById('name').value,
+    phone: document.getElementById('phone').value,
+    password: document.getElementById('password').value,
+    age: parseInt(document.getElementById('age').value),
+    blood_group: document.getElementById('blood_group').value,
+    role: document.getElementById('role').value,
+    trusted_contacts,
+    mic_consent: true
+  };
+
+  try {
+    const res = await fetch('/auth/register', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      localStorage.setItem('shield_token', data.token);
+      localStorage.setItem('shield_user', JSON.stringify(data));
+      document.getElementById('successMsg').textContent = 'Account created! Redirecting...';
+      document.getElementById('successMsg').style.display = 'block';
+      setTimeout(() => {
+        if (data.role === 'admin') window.location.href = '/admin/';
+        else if (data.role === 'authority') window.location.href = '/dashboard/';
+        else window.location.href = '/user/home';
+      }, 1500);
+    } else {
+      showError(data.error);
+    }
+  } catch(e) {
+    showError('Connection failed. Please try again.');
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+</script>
+{% endblock %}

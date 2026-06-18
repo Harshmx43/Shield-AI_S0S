@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}ShieldAI{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">
+      <i class="fas fa-shield-alt"></i>
+      <span>Shield<span class="accent">AI</span></span>
+    </div>
+    <div class="nav-links" id="navLinks">
+      <a href="/" id="navHome">Home</a>
+      <a href="/dashboard/" id="navDashboard">Authority Dashboard</a>
+      <a href="/admin/" id="navAdmin" style="display:none">Admin Panel</a>
+      <a href="/auth/login" id="navLogout" onclick="logout()">Logout</a>
+    </div>
+  </nav>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='js/socket.js') }}"></script>
+  {% block scripts %}{% endblock %}
+  <script>
+    function logout() {
+      localStorage.removeItem('shield_token');
+      localStorage.removeItem('shield_user');
+    }
+    // Show admin link only for admins
+    const _u = JSON.parse(localStorage.getItem('shield_user') || '{}');
+    if (_u.role === 'admin') document.getElementById('navAdmin').style.display = 'inline';
+  </script>
+</body>
+</html>

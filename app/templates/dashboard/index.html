@@ -1,0 +1,436 @@
+{% extends 'base.html' %}
+{% block title %}Authority Dashboard — ShieldAI{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  .dashboard-layout { display:flex; height:calc(100vh - 60px); overflow:hidden; }
+  .sidebar { width:380px; background:#0f0f1a; border-right:1px solid #1e1e2e; display:flex; flex-direction:column; overflow:hidden; }
+  .sidebar-header { padding:20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1e1e2e; }
+  .sidebar-header h3 { color:#fff; margin:0; font-size:16px; }
+  .badge { background:#ff2244; color:#fff; border-radius:50%; width:24px; height:24px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+  .filter-bar { padding:12px 20px; display:flex; gap:8px; border-bottom:1px solid #1e1e2e; }
+  .filter-btn { padding:6px 14px; border-radius:20px; border:1px solid #333; background:transparent; color:#888; cursor:pointer; font-size:12px; }
+  .filter-btn.active { background:#ff2244; border-color:#ff2244; color:#fff; }
+  .filter-btn.critical { border-color:#ff2244; color:#ff2244; }
+  .filter-btn.high { border-color:#ff6600; color:#ff6600; }
+  .case-list { flex:1; overflow-y:auto; padding:12px; }
+  .empty-state { text-align:center; padding:40px 20px; color:#555; }
+  .empty-state i { font-size:40px; margin-bottom:12px; display:block; }
+  .case-card { background:#1a1a2e; border-radius:12px; padding:16px; margin-bottom:10px; border-left:4px solid #555; cursor:pointer; transition:all 0.2s; }
+  .case-card:hover { transform:translateX(4px); }
+  .case-card.critical { border-left-color:#ff2244; }
+  .case-card.high { border-left-color:#ff6600; }
+  .case-card.medium { border-left-color:#ffaa00; }
+  .case-card.low { border-left-color:#00cc44; }
+  .case-card.dispatched { opacity:0.7; }
+  .case-card-header { display:flex; justify-content:space-between; margin-bottom:8px; }
+  .case-card h4 { color:#fff; margin:4px 0; font-size:15px; }
+  .case-card p { color:#888; margin:2px 0; font-size:13px; }
+  .reason-text { color:#aaa; font-size:12px; margin-top:6px; font-style:italic; }
+  .case-actions { display:flex; gap:8px; margin-top:12px; }
+  .danger-badge { padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700; }
+  .danger-badge.critical { background:#ff224420; color:#ff2244; }
+  .danger-badge.high { background:#ff660020; color:#ff6600; }
+  .danger-badge.medium { background:#ffaa0020; color:#ffaa00; }
+  .danger-badge.low { background:#00cc4420; color:#00cc44; }
+  .case-time { color:#555; font-size:11px; }
+  .map-area { flex:1; position:relative; }
+  #map { width:100%; height:100%; min-height:500px; background:#1a1a28; }
+  .stats-bar { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(10,10,20,0.9); border-radius:50px; padding:12px 30px; display:flex; gap:30px; backdrop-filter:blur(10px); border:1px solid #1e1e2e; z-index:999; }
+  .stat { text-align:center; }
+  .stat span { display:block; font-size:22px; font-weight:700; color:#fff; }
+  .stat label { font-size:11px; color:#888; }
+  .alert-toast { position:absolute; top:20px; right:20px; background:#1a1a2e; border:1px solid #ff2244; border-radius:12px; padding:16px; display:flex; align-items:center; gap:12px; z-index:9999; max-width:320px; }
+  .toast-icon { color:#ff2244; font-size:24px; }
+  .toast-body h4 { color:#fff; margin:0 0 4px; }
+  .toast-body p { color:#888; margin:0; font-size:13px; }
+  .detail-panel { position:absolute; right:0; top:0; width:360px; height:100%; background:#0f0f1a; border-left:1px solid #1e1e2e; z-index:1000; display:flex; flex-direction:column; overflow-y:auto; }
+  .panel-header { padding:20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #1e1e2e; position:sticky; top:0; background:#0f0f1a; }
+  .panel-header h3 { color:#fff; margin:0; }
+  .panel-body { padding:20px; }
+  .detail-victim { display:flex; gap:16px; align-items:center; margin-bottom:20px; }
+  .victim-avatar { width:50px; height:50px; background:#ff224420; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#ff2244; font-size:20px; }
+  .detail-victim h3 { color:#fff; margin:0 0 4px; }
+  .detail-victim p { color:#888; margin:0; font-size:13px; }
+  .blood-badge { background:#ff224420; color:#ff2244; padding:2px 8px; border-radius:4px; font-size:12px; }
+  .danger-meter { margin:20px 0; }
+  .meter-label { display:flex; justify-content:space-between; margin-bottom:8px; color:#888; font-size:13px; }
+  .meter-bar { background:#1e1e2e; border-radius:10px; height:8px; overflow:hidden; }
+  .meter-fill { height:100%; border-radius:10px; transition:width 1s ease; }
+  .meter-bar + span { color:#fff; font-size:13px; display:block; text-align:right; margin-top:4px; }
+  .reasons-list { margin:20px 0; }
+  .reasons-list h4 { color:#fff; margin:0 0 12px; font-size:14px; }
+  .reason-item { color:#aaa; font-size:13px; padding:6px 0; border-bottom:1px solid #1e1e2e; display:flex; align-items:center; gap:8px; }
+  .reason-item i { color:#ff2244; font-size:10px; }
+  .transcript-box { background:#1a1a2e; border-radius:8px; padding:16px; margin:16px 0; }
+  .transcript-box h4 { color:#fff; margin:0 0 8px; font-size:14px; }
+  .transcript-box p { color:#aaa; margin:0; font-size:13px; font-style:italic; }
+  .trigger-info { display:flex; gap:8px; margin:16px 0; flex-wrap:wrap; }
+  .trigger-badge { background:#ff224415; color:#ff2244; padding:4px 10px; border-radius:4px; font-size:12px; }
+  .status-badge { padding:4px 10px; border-radius:4px; font-size:12px; }
+  .status-badge.active { background:#ff224415; color:#ff2244; }
+  .status-badge.dispatched { background:#ffaa0015; color:#ffaa00; }
+  .panel-actions { margin-top:20px; display:flex; flex-direction:column; gap:10px; }
+  .btn { padding:10px 18px; border-radius:8px; border:none; cursor:pointer; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+  .btn-sm { padding:6px 12px; font-size:12px; }
+  .btn-primary { background:#1e1e2e; color:#fff; border:1px solid #333; }
+  .btn-danger { background:#ff224420; color:#ff2244; border:1px solid #ff224440; }
+  .btn-success { background:#00cc4420; color:#00cc44; border:1px solid #00cc4440; }
+  .btn-full { width:100%; justify-content:center; }
+  .refresh-indicator { position:fixed; top:70px; right:16px; background:#1a1a2e; border:1px solid #1e1e2e; border-radius:8px; padding:6px 12px; font-size:11px; color:#555; z-index:9998; }
+  .refresh-indicator.syncing { color:#00cc44; border-color:#00cc4440; }
+  @keyframes pulse-map {
+    0%,100% { box-shadow:0 0 0 0 rgba(255,34,68,0.7); }
+    50%      { box-shadow:0 0 0 14px rgba(255,34,68,0); }
+  }
+</style>
+{% endblock %}
+{% block content %}
+
+<script> window.INITIAL_CASES = {{ cases_json | safe }}; 
+  
+</script>
+
+<!-- Auto-refresh indicator -->
+<div class="refresh-indicator" id="refreshIndicator">🔄 Auto-refresh: ON</div>
+
+<div class="dashboard-layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h3><i class="fas fa-satellite-dish"></i> Live Cases</h3>
+      <span class="badge" id="caseCount">0</span>
+    </div>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterCases('all', this)">All</button>
+      <button class="filter-btn critical" onclick="filterCases('CRITICAL', this)">Critical</button>
+      <button class="filter-btn high" onclick="filterCases('HIGH', this)">High</button>
+    </div>
+    <div class="case-list" id="caseList">
+      <div class="empty-state" id="emptyState">
+        <i class="fas fa-shield-alt"></i>
+        <p>No active cases</p>
+      </div>
+    </div>
+  </aside>
+
+  <main class="map-area" style="position:relative;">
+    <div id="map"></div>
+    <div class="alert-toast" id="alertToast" style="display:none">
+      <div class="toast-icon"><i class="fas fa-exclamation-triangle"></i></div>
+      <div class="toast-body">
+        <h4 id="toastTitle">New Emergency!</h4>
+        <p id="toastDesc"></p>
+      </div>
+      <button onclick="closeToast()" style="background:none;border:none;color:#888;cursor:pointer;font-size:18px;"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="stats-bar">
+      <div class="stat"><span id="statCritical">0</span><label>Critical</label></div>
+      <div class="stat"><span id="statHigh">0</span><label>High</label></div>
+      <div class="stat"><span id="statDispatched">0</span><label>Dispatched</label></div>
+      <div class="stat"><span id="statResolved">0</span><label>Resolved Today</label></div>
+    </div>
+  </main>
+
+  <div class="detail-panel" id="detailPanel" style="display:none">
+    <div class="panel-header">
+      <h3>Case Details</h3>
+      <button onclick="closePanel()" style="background:none;border:none;color:#888;cursor:pointer;font-size:18px;"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+  </div>
+</div>
+
+<audio id="alertSound" preload="auto"></audio>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const DANGER_COLORS = { CRITICAL:'#FF2244', HIGH:'#FF6600', MEDIUM:'#FFAA00', LOW:'#00CC44', ANALYZING:'#888888' };
+const IST_OFFSET = 5.5 * 60 * 60 * 1000; // +5:30 in ms
+let map, markers = {}, cases = {};
+let refreshTimer = null;
+
+// ── IST Time Helpers ──────────────────────────────────────────────────────────
+function toIST(dateStr) {
+  if (!dateStr) return null;
+  // If already has timezone info, parse directly
+  // Otherwise treat as UTC and add IST offset
+  const d = new Date(dateStr);
+  if (isNaN(d)) return null;
+  return d;
+}
+
+function formatIST(dateStr) {
+  const d = toIST(dateStr);
+  if (!d) return 'Unknown';
+  // Format as DD/MM/YYYY, HH:MM IST
+  return d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }) + ' IST';
+}
+
+function timeAgo(dateStr) {
+  const d = toIST(dateStr);
+  if (!d) return 'Just now';
+  // Calculate diff using IST
+  const nowIST = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+  const thenIST = new Date(d.toLocaleString('en-US', {timeZone:'Asia/Kolkata'}));
+  const diff = Math.floor((nowIST - thenIST) / 60000);
+  if (diff < 1) return 'Just now';
+  if (diff < 60) return diff + 'm ago';
+  if (diff < 1440) return Math.floor(diff/60) + 'h ago';
+  return Math.floor(diff/1440) + 'd ago';
+}
+
+// ── Init Map ──────────────────────────────────────────────────────────────────
+window.addEventListener('load', function() {
+  map = L.map('map', { center:[20.5937, 78.9629], zoom:5, attributionControl:false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
+
+  // Load initial cases from server
+  loadCases(window.INITIAL_CASES);
+
+  // ── AUTO REFRESH every 10 seconds ────────────────────────────────────────
+  refreshTimer = setInterval(function() {
+    fetchLatestCases();
+  }, 10000);
+
+  // Socket for real-time
+  if (typeof shieldSocket !== 'undefined') {
+    shieldSocket.on('new_case', function(c) {
+      if (!cases[c._id]) { addCaseToMap(c); showAlertToast(c); }
+      updateStats();
+    });
+    shieldSocket.on('location_update', function(d) {
+      if (markers[d.case_id]) markers[d.case_id].setLatLng([d.lat, d.lng]);
+    });
+    shieldSocket.on('case_resolved', function(d) { removeCase(d.case_id); });
+  }
+});
+
+// ── Fetch Latest Cases from Server ───────────────────────────────────────────
+async function fetchLatestCases() {
+  const ind = document.getElementById('refreshIndicator');
+  try {
+    ind.textContent = '🔄 Syncing...';
+    ind.className = 'refresh-indicator syncing';
+
+    const res = await fetch('/api/cases/active');
+    if (!res.ok) return;
+    const freshCases = await res.json();
+
+    // Add new cases not already on map
+    freshCases.forEach(function(c) {
+      if (!cases[c._id]) {
+        addCaseToMap(c);
+        showAlertToast(c);
+      }
+    });
+
+    // Remove resolved cases
+    const freshIds = freshCases.map(function(c){ return c._id; });
+    Object.keys(cases).forEach(function(id) {
+      if (!freshIds.includes(id)) removeCase(id);
+    });
+
+    updateStats();
+    ind.textContent = '✅ Updated ' + formatIST(new Date().toISOString());
+    setTimeout(function(){ ind.textContent = '🔄 Auto-refresh: ON'; ind.className = 'refresh-indicator'; }, 3000);
+
+  } catch(e) {
+    ind.textContent = '⚠️ Refresh failed';
+    ind.className = 'refresh-indicator';
+  }
+}
+
+// ── Load Initial Cases ────────────────────────────────────────────────────────
+function loadCases(caseList) {
+  if (!caseList || caseList.length === 0) return;
+  caseList.forEach(addCaseToMap);
+  updateStats();
+  document.getElementById('emptyState').style.display = 'none';
+}
+
+// ── Add Case to Map + Sidebar ─────────────────────────────────────────────────
+function addCaseToMap(c) {
+  if (!c || !c._id) return;
+  cases[c._id] = c;
+
+  const color = DANGER_COLORS[c.danger_level] || '#888';
+  const isPulse = c.danger_level === 'CRITICAL';
+
+  // ── FIX: Use actual location or fallback ──────────────────────────────────
+  let lat = 20.5937, lng = 78.9629; // India center default
+  if (c.location && c.location.lat && c.location.lng &&
+      !(c.location.lat === 28.6139 && c.location.lng === 77.2090)) {
+    // Use real location (skip New Delhi default)
+    lat = c.location.lat;
+    lng = c.location.lng;
+  } else if (c.location && c.location.lat) {
+    lat = c.location.lat;
+    lng = c.location.lng;
+  }
+
+  const icon = L.divIcon({
+    className: '',
+    html: '<div style="width:'+(isPulse?22:16)+'px;height:'+(isPulse?22:16)+'px;'+
+          'background:'+color+';border-radius:50%;border:3px solid white;'+
+          'box-shadow:0 0 10px '+color+';'+
+          (isPulse?'animation:pulse-map 1s infinite;':'')+'"></div>',
+    iconSize:[22,22], iconAnchor:[11,11]
+  });
+
+  const marker = L.marker([lat, lng], {icon}).addTo(map);
+  marker.bindPopup(
+    '<div style="font-family:Inter,sans-serif;min-width:160px">'+
+    '<b style="font-size:14px">'+c.victim_name+'</b><br/>'+
+    '<span style="color:'+color+';font-weight:700">'+c.danger_level+'</span><br/>'+
+    '<small style="color:#555">📍 '+lat.toFixed(4)+', '+lng.toFixed(4)+'</small><br/>'+
+    '<small style="color:#555">🕐 '+formatIST(c.created_at)+'</small>'+
+    '</div>'
+  );
+  marker.on('click', function(){ openCasePanel(c._id); });
+  markers[c._id] = marker;
+
+  // Sidebar card
+  const list = document.getElementById('caseList');
+  const old = document.getElementById('card-'+c._id);
+  if (old) old.remove();
+
+  const card = document.createElement('div');
+  card.className = 'case-card '+(c.danger_level||'low').toLowerCase();
+  card.id = 'card-'+c._id;
+  card.innerHTML =
+    '<div class="case-card-header">'+
+      '<span class="danger-badge '+(c.danger_level||'').toLowerCase()+'">'+(c.danger_level||'?')+'</span>'+
+      '<span class="case-time">'+timeAgo(c.created_at)+'</span>'+
+    '</div>'+
+    '<h4>'+c.victim_name+'</h4>'+
+    '<p><i class="fas fa-phone"></i> '+(c.victim_phone||'N/A')+'</p>'+
+    '<p><i class="fas fa-tint"></i> '+(c.victim_blood_group||'?')+'</p>'+
+    '<p><i class="fas fa-clock"></i> '+formatIST(c.created_at)+'</p>'+
+    '<p class="reason-text">'+((c.danger_reasons||[]).slice(0,2).join(' • ')||'Alert triggered')+'</p>'+
+    '<div class="case-actions">'+
+      '<button class="btn btn-sm btn-primary" onclick="openCasePanel(\''+c._id+'\')"><i class="fas fa-eye"></i> View</button>'+
+      '<button class="btn btn-sm btn-danger" onclick="dispatchTeam(\''+c._id+'\')"><i class="fas fa-truck"></i> Dispatch</button>'+
+    '</div>';
+  list.prepend(card);
+
+  // ── Update count correctly ────────────────────────────────────────────────
+  document.getElementById('caseCount').textContent = Object.keys(cases).length;
+  document.getElementById('emptyState').style.display = 'none';
+}
+
+// ── Open Case Detail Panel ────────────────────────────────────────────────────
+function openCasePanel(id) {
+  const c = cases[id]; if (!c) return;
+  const color = DANGER_COLORS[c.danger_level] || '#888';
+  const lat = (c.location && c.location.lat) ? c.location.lat : '?';
+  const lng = (c.location && c.location.lng) ? c.location.lng : '?';
+
+  document.getElementById('panelBody').innerHTML =
+    '<div class="detail-victim">'+
+      '<div class="victim-avatar"><i class="fas fa-user"></i></div>'+
+      '<div><h3>'+c.victim_name+'</h3><p>'+(c.victim_phone||'')+'</p>'+
+      '<span class="blood-badge">'+(c.victim_blood_group||'?')+'</span></div>'+
+    '</div>'+
+    '<div class="danger-meter">'+
+      '<div class="meter-label"><span>Danger Score</span>'+
+      '<span class="danger-badge '+(c.danger_level||'').toLowerCase()+'">'+(c.danger_level||'')+'</span></div>'+
+      '<div class="meter-bar"><div class="meter-fill" style="width:'+(c.danger_score||0)+'%;background:'+color+'"></div></div>'+
+      '<span>'+(c.danger_score||0)+'/100</span>'+
+    '</div>'+
+    '<div class="reasons-list"><h4><i class="fas fa-brain"></i> AI Analysis</h4>'+
+      (c.danger_reasons||['Alert triggered']).map(function(r){
+        return '<div class="reason-item"><i class="fas fa-chevron-right"></i>'+r+'</div>';
+      }).join('')+
+    '</div>'+
+    (c.transcript?'<div class="transcript-box"><h4><i class="fas fa-microphone"></i> Transcript</h4><p>"'+c.transcript+'"</p></div>':'')+
+    '<div class="trigger-info">'+
+      '<span class="trigger-badge">'+(c.trigger_type||'panic').toUpperCase()+' TRIGGER</span>'+
+      '<span class="status-badge '+(c.status||'active')+'">'+(c.status||'active').toUpperCase()+'</span>'+
+    '</div>'+
+    '<div style="background:#1a1a2e;border-radius:8px;padding:12px;margin:12px 0;font-size:13px;color:#aaa;">'+
+      '<div>📍 <b>Location:</b> '+lat+', '+lng+'</div>'+
+      '<div>🕐 <b>Time (IST):</b> '+formatIST(c.created_at)+'</div>'+
+      '<div>⚡ <b>Reported:</b> '+timeAgo(c.created_at)+'</div>'+
+    '</div>'+
+    '<div class="panel-actions">'+
+      '<button class="btn btn-danger btn-full" onclick="dispatchTeam(\''+id+'\')"><i class="fas fa-truck"></i> Dispatch Team</button>'+
+      '<button class="btn btn-success btn-full" onclick="resolveCase(\''+id+'\')"><i class="fas fa-check-circle"></i> Mark Resolved</button>'+
+    '</div>';
+
+  document.getElementById('detailPanel').style.display = 'flex';
+  if (lat !== '?') map.flyTo([lat, lng], 14, {animate:true, duration:1});
+}
+
+function closePanel() { document.getElementById('detailPanel').style.display = 'none'; }
+
+// ── Dispatch ──────────────────────────────────────────────────────────────────
+async function dispatchTeam(id) {
+  const teams = ['Team Alpha','Team Bravo','Team Charlie','Team Delta'];
+  const team = teams[Math.floor(Math.random()*teams.length)];
+  try {
+    await fetch('/api/cases/'+id+'/dispatch', {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({team:team})
+    });
+  } catch(e) {}
+  alert('✅ '+team+' dispatched!');
+  const card = document.getElementById('card-'+id);
+  if (card) card.classList.add('dispatched');
+  if (cases[id]) cases[id].status = 'dispatched';
+  updateStats();
+}
+
+// ── Resolve ───────────────────────────────────────────────────────────────────
+async function resolveCase(id) {
+  try { await fetch('/api/cases/'+id+'/resolve', {method:'PUT'}); } catch(e) {}
+  removeCase(id);
+  closePanel();
+  document.getElementById('statResolved').textContent =
+    parseInt(document.getElementById('statResolved').textContent)+1;
+}
+
+// ── Remove Case ───────────────────────────────────────────────────────────────
+function removeCase(id) {
+  if (markers[id]) { map.removeLayer(markers[id]); delete markers[id]; }
+  const card = document.getElementById('card-'+id);
+  if (card) card.remove();
+  delete cases[id];
+  const count = Object.keys(cases).length;
+  document.getElementById('caseCount').textContent = count;
+  if (count === 0) document.getElementById('emptyState').style.display = 'block';
+}
+
+// ── Update Stats ──────────────────────────────────────────────────────────────
+function updateStats() {
+  const list = Object.values(cases);
+  document.getElementById('statCritical').textContent = list.filter(function(c){return c.danger_level==='CRITICAL';}).length;
+  document.getElementById('statHigh').textContent = list.filter(function(c){return c.danger_level==='HIGH';}).length;
+  document.getElementById('statDispatched').textContent = list.filter(function(c){return c.status==='dispatched';}).length;
+  document.getElementById('caseCount').textContent = list.length;
+}
+
+// ── Filter ────────────────────────────────────────────────────────────────────
+function filterCases(level, btn) {
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('.case-card').forEach(function(card){
+    card.style.display = (level==='all'||card.classList.contains(level.toLowerCase())) ? 'block' : 'none';
+  });
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showAlertToast(c) {
+  document.getElementById('toastTitle').textContent = '🚨 NEW '+(c.danger_level||'')+' ALERT';
+  document.getElementById('toastDesc').textContent = c.victim_name+' — '+((c.danger_reasons||['Panic triggered'])[0]);
+  document.getElementById('alertToast').style.display = 'flex';
+  setTimeout(closeToast, 8000);
+}
+function closeToast() { document.getElementById('alertToast').style.display = 'none'; }
+</script>
+{% endblock %}
